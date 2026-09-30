@@ -1,0 +1,52 @@
+# ============================================================================
+#  追风者 · 数据库连接参数（配置模板）
+#  ---------------------------------------------------------------------------
+#  【这是模板文件，不用于运行】
+#  真正生效的是同目录下的 db.properties，它因含口令已被 .gitignore 排除。
+#  新环境部署步骤：把本文件复制一份并改名为 db.properties，然后填写下面的口令。
+#
+#      Windows:  copy db.properties.example db.properties
+#      macOS/Linux:  cp db.properties.example db.properties
+#
+#  后端读取方式：
+#      Properties p = new Properties();
+#      p.load(DBUtil.class.getClassLoader().getResourceAsStream("db.properties"));
+#  课程要求「连接池配置需可参数化」即指本文件 —— 改这里即可切换数据库，
+#  不必重新编译 Java 代码。
+#
+#  另外，DBUtil 读取配置时【优先取系统属性】，因此也可以不填口令，
+#  改用 Tomcat 启动参数注入，避免任何明文口令落在磁盘上：
+#      set JAVA_OPTS=%JAVA_OPTS% -Djdbc.password=你的口令
+# ============================================================================
+
+# ---- JDBC 驱动 ----
+# MySQL 8.x 用 com.mysql.cj.jdbc.Driver；MySQL 5.7 用 com.mysql.jdbc.Driver
+jdbc.driver=com.mysql.cj.jdbc.Driver
+
+# ---- 连接地址 ----
+# 库名必须是 MySQL 里【真实存在】的库。本机为 typhoon_monitor
+# （原始备份 Dump20260916.sql 中的库名，未经改名）。
+# 库名只保留一处口径：本文件与 db/typhoon_monitor.sql 必须逐字一致，
+# 否则应用启动后所有查询都会报 "Unknown database 'xxx'"。
+#
+# useUnicode + characterEncoding：解决中文乱码
+# serverTimezone=Asia/Shanghai：MySQL 8 必须显式指定时区，否则连接报错
+# useSSL=false：本地开发免证书告警
+# allowPublicKeyRetrieval=true：MySQL 8 默认加密插件下允许获取公钥
+jdbc.url=jdbc:mysql://localhost:3306/typhoon_monitor?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+
+# ---- 账号密码 ----
+# 生产/交付场景建议不要用 root，单独建一个只对本库有增删改查权限的账号。
+jdbc.username=root
+jdbc.password=__请填写本机 MySQL 口令__
+
+# ---- 连接池参数（课程要求：连接池需可参数化） ----
+pool.initialSize=5
+pool.maxActive=20
+pool.maxIdle=10
+pool.minIdle=5
+pool.maxWait=5000
+
+# ---- 其他 ----
+# 是否打印 SQL（开发期 true，答辩/部署改 false）
+sql.show=false

@@ -1,0 +1,100 @@
+/* ==========================================================================
+   追风者 · 台风实况监测与灾害辅助分析平台
+   Design Tokens —— 全部数值取自 Ardot 设计稿（fileId 728955385585345）
+   颜色由设计稿 0~1 浮点值换算：hex = round(v * 255)
+   ========================================================================== */
+
+:root {
+  /* ---------- 品牌与中性色 ---------- */
+  --brand:        #0E5484;   /* 主色 · 平台蓝 */
+  --brand-light:  #7FC4E8;   /* Logo 副弧线 / 地图海域点缀 */
+  --ink:          #152A3D;   /* 正文 */
+  --ink-2:        #5B6B7B;   /* 次要文字 */
+  --ink-3:        #93A1B0;   /* 弱化文字 / 占位符 */
+  --bg:           #F2F5F8;   /* 页面背景 / 内嵌块底 */
+  --card:         #FFFFFF;   /* 卡片底 */
+  --line:         #E4E9EF;   /* 边框 / 分隔线 */
+  --row-alt:      #F7F9FB;   /* 表格隔行底 / 表头底 */
+  --divider:      #D8E0E8;   /* 标题竖分隔条 */
+  --brand-soft:   #E8F1F8;   /* 选中态浅蓝底（Tab / 图层开关 / 列表项） */
+
+  /* ---------- 语义状态 ---------- */
+  --danger:       #D8322B;   /* 未读红点 */
+  --ok:           #2FA84F;
+  --ok-bg:        #E8F6ED;
+  --warn-ink:     #8A6A2A;
+  --warn-bg:      #FFF8E8;
+  --warn-line:    #F0DFB8;
+  --high-ink:     #C0491F;
+  --high-bg:      #F5E9E5;
+
+  /* ---------- 台风强度等级（中国气象局分级） ---------- */
+  --ty-ts:        #2FA84F;   /* 热带风暴 */
+  --ty-sts:       #C77400;   /* 强热带风暴 */
+  --ty-ty:        #E8833A;   /* 台风 */
+  --ty-sty:       #D8322B;   /* 强台风 */
+  --ty-super:     #8B4BB8;   /* 超强台风 */
+
+  /* ---------- 预报机构标识色（forecast_agencies.display_color） ---------- */
+  --ag-cma:       #E60012;   /* 中央气象台 */
+  --ag-jma:       #0066CC;   /* 日本气象厅 */
+  --ag-jtwc:      #FF9900;   /* 美国联合台风预警中心 */
+  --ag-hko:       #00A650;   /* 中国香港天文台 */
+  --ag-kma:       #8A2BE2;   /* 韩国气象厅 */
+  --ag-ecmwf:     #964B00;   /* 欧洲中期天气预报中心 */
+  --ag-nmc:       #2E8B57;   /* 国家气象中心 */
+  --ag-sti:       #4169E1;   /* 上海台风研究所 */
+  --ag-nchmf:     #FF6347;   /* 越南国家水文气象预报中心 */
+  --ag-pagasa:    #FF00FF;   /* 菲律宾大气地球物理和天文管理局 */
+
+  /* ---------- 地图图层 ---------- */
+  --map-ocean:    #16283C;   /* 深色海面 */
+  --map-land:     #1B4A69;   /* 陆地色块 */
+  --map-land-2:   #31739A;   /* 次一级陆地 */
+  --map-grid:     #2B5A7C;   /* 经纬网格（0.45 透明度） */
+  --map-coast:    #5C8CB0;   /* 海岸线 */
+  --map-label:    #9CC2DC;   /* 城市标注文字 */
+  --map-axis:     #5C8CB0;   /* 经纬度刻度文字 */
+  --map-sea:      #35688C;   /* 海域名称文字 */
+  --map-frame:    #0E3B59;   /* 地图底（海域）底色，取自设计稿 */
+  --map-legend-bg: rgba(13, 41, 64, 0.88);
+
+  /* ---------- 圆角 ---------- */
+  --r-card:  10px;
+  --r-sm:     8px;
+  --r-inner:  6px;
+  --r-pill:   4px;
+
+  /* ---------- 间距 ---------- */
+  --gap-section:  12px;   /* 卡片之间 */
+  --gap-card:     10px;   /* 卡片内元素之间 */
+  --gap-inline:    8px;
+  --pad-page:     16px;
+  --pad-card:     16px;
+  --pad-row:      10px;
+  --pad-head:     10px;
+
+  /* ---------- 尺寸 ---------- */
+  --page-w:      1440px;
+  --header-h:      60px;
+  --col-side:     340px;
+  --col-left:     276px;
+
+  /* ---------- 字体 ---------- */
+  --font-base: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+  --font-num:  "Inter", "Helvetica Neue", Arial, sans-serif;
+
+  --fs-page-title: 18px;
+  --fs-card-title: 14px;
+  --fs-nav:        14px;
+  --fs-body:       12px;
+  --fs-head:       11px;
+  --fs-sub:        11px;
+  --fs-mini:       10px;
+  --fs-metric:     22px;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semi:    600;
+  --fw-bold:    700;
+}

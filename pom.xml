@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================================
+   追风者 —— 台风实况监测与灾害辅助分析 Web 平台
+   Maven 构建描述文件
+  ============================================================================
+   课程要求（《课程要求.pptx》）对应关系：
+     · 后端：Java 原生开发，禁用任何框架（Spring 等）—— 本 pom 只引入
+             Servlet API、Jackson（JSON 序列化）、MySQL JDBC 驱动三类库，
+             它们都是 JDK / Servlet 规范层面的基础库，不属于开发框架。
+     · 架构：DAO → Service → Model → Servlet 分层，包名见 src/main/java。
+     · 数据库：MySQL，建库脚本见 db/typhoon_monitor.sql
+              （库名 typhoon_monitor 是原始备份 Dump20260916.sql 中既有的名字，
+                必须与 src/main/resources/db.properties 的 jdbc.url 逐字一致）。
+     · 配置：db.properties 含数据库口令，已被 .gitignore 排除；
+            入库的是模板 db.properties.example，新环境照它复制一份即可。
+     · 测试：JUnit 5 + Mockito（课程要求覆盖率 ≥ 60%）。
+     · 部署：mvn package 产出 WAR，放入 Tomcat 的 webapps 目录。
+  ============================================================================
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.zfz</groupId>
+  <artifactId>typhoon-platform</artifactId>
+  <version>1.0.0</version>
+  <packaging>war</packaging>
+
+  <name>typhoon-platform</name>
+  <description>追风者 · 台风实况监测与灾害辅助分析 Web 平台</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!--
+      JDK 版本：1.8（Java 8）
+      多数教学机房的 Tomcat 8.5 / 9 与该版本最匹配。
+      若你的环境是 JDK 11 / 17，把下面三处改成 11 / 17 即可，其余不用动。
+    -->
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+
+    <!-- 依赖版本集中管理 -->
+    <servlet.api.version>4.0.1</servlet.api.version>
+    <jackson.version>2.15.3</jackson.version>
+    <mysql.version>8.0.33</mysql.version>
+    <junit.version>5.10.1</junit.version>
+    <mockito.version>5.7.0</mockito.version>
+    <jacoco.version>0.8.15</jacoco.version>
+
+    <!--
+      JaCoCo 执行数据文件（jacoco.exec）的落盘位置。
+
+      为什么不按 Maven 惯例放 target/jacoco.exec：
+      surefire 在 Windows 上是通过 `cmd.exe /X /C "<整条命令行>"` 启动测试 JVM 的，
+      -javaagent 参数里的 destfile 路径会被这道 shell 转发做一次编码转换。
+      若工程路径含中文等非 ASCII 字符（例如 .../Desktop/web课程项目/typhoon_platform），
+      路径会被破坏成 Java 打不开的名字，而 JaCoCo 在关闭钩子里静默放弃写盘 ——
+      最终只看到 "Skipping JaCoCo execution due to missing execution data file"，
+      target/site 下什么都不生成。已实测：
+        · 工程路径含中文 + destfile 为中文路径 → 不产出（本机默认路径即是这种）
+        · 工程路径含中文 + destfile 为纯 ASCII   → 正常产出
+        · 工程路径纯 ASCII + destfile 按惯例       → 正常产出
+      因此这里把 exec 文件固定放到系统临时目录（两端都是 ASCII，且跨平台），
+      报告本身仍照惯例输出到 target/site/jacoco/。
+
+      需要改回惯例位置时，命令行覆盖即可：
+        mvn test -Djacoco.destFile=target/jacoco.exec
+    -->
+    <jacoco.destFile>${java.io.tmpdir}/typhoon-platform-jacoco.exec</jacoco.destFile>
+  </properties>
+
+  <dependencies>
+
+    <!-- ==================== Servlet API ====================
+         Tomcat 自带该实现，故 scope = provided（不打进 WAR，避免与容器冲突）
+         注意：Tomcat 10 起改用 jakarta.servlet，包名需整体替换；
+              本工程按 Tomcat 8.5 / 9 的 javax.servlet 编写。 -->
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>javax.servlet-api</artifactId>
+      <version>${servlet.api.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- ==================== JSON 序列化 ====================
+         课程要求：使用 Jackson 实现 Java 对象与 JSON 的互转，统一响应格式
+         { code, message, data } -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <!-- ==================== MySQL 驱动 ==================== -->
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>${mysql.version}</version>
+    </dependency>
+
+    <!-- ==================== 单元测试（课程要求 JUnit 5 + Mockito） ==================== -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <!-- WAR 包名 = 浏览器访问时的 contextPath：/typhoon_platform -->
+    <finalName>typhoon_platform</finalName>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <encoding>UTF-8</encoding>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>3.4.0</version>
+        <configuration>
+          <failOnMissingWebXml>false</failOnMissingWebXml>
+          <!-- 前端产物就在 src/main/webapp 下，无需额外配置 webResources -->
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.1.2</version>
+        <configuration>
+          <!--
+            必须用 @{argLine} 而不是 ${argLine}：
+            jacoco:prepare-agent 会在 test 阶段之前把字节码探针的 -javaagent 参数
+            写进名为 argLine 的属性，surefire 再把 @{argLine} 替换成它。
+            若这里直接写死 <argLine>-Dfile.encoding=UTF-8</argLine>，
+            或写成 ${argLine}，都会把探针参数挤掉 —— 结果是 target/jacoco.exec
+            不生成、覆盖率报告空白（曾实测踩到）。
+          -->
+          <argLine>@{argLine} -Dfile.encoding=UTF-8</argLine>
+        </configuration>
+      </plugin>
+
+      <!-- ==================== 测试覆盖率（课程要求 ≥ 60%） ====================
+           jacoco:prepare-agent 在 surefire 启动的 JVM 上挂字节码探针，
+           test 阶段结束后由 jacoco:report 产出 HTML / XML / CSV 三份报告：
+             target/site/jacoco/index.html      人看的网页版
+             target/site/jacoco/jacoco.xml      CI 用的机器可读版
+             target/site/jacoco/jacoco.csv      便于汇总成表格写进测试报告
+           跑法：mvn test 或 mvn verify
+
+           版本必须与 JDK 匹配：0.8.12 的 ASM 只会解析到 class file major 67，
+           在本机 JDK 25（major 69）上会刷
+             "Unsupported class file major version 69" 且不产出 jacoco.exec。
+           JDK 25 需 0.8.14+，这里取当前最新的 0.8.15。
+           若课程机房是 JDK 8，把版本降回 0.8.12 亦可正常工作。            -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>jacoco-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <!-- 位置与原因见上方 jacoco.destFile 属性的注释 -->
+              <destFile>${jacoco.destFile}</destFile>
+            </configuration>
+          </execution>
+          <execution>
+            <id>jacoco-report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <configuration>
+              <dataFile>${jacoco.destFile}</dataFile>
+            </configuration>
+          </execution>
+          <!-- 覆盖率闸门：mvn verify 时若行覆盖率低于 60% 直接构建失败。
+               绑定在 verify 阶段而不是 test，这样日常 `mvn test` 迭代时
+               不会因为暂时没达标而中断；mvn verify 才代表"交付级"检查。 -->
+          <execution>
+            <id>jacoco-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <dataFile>${jacoco.destFile}</dataFile>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.60</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
