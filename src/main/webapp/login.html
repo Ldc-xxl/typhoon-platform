@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440">
+<title>登录 / 注册 · 追风者 台风实况监测与灾害辅助分析平台</title>
+<link rel="icon" type="image/svg+xml" href="assets/svg/logo-typhoon.svg">
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="css/tokens.css?v=202610150928">
+<link rel="stylesheet" href="css/app.css?v=202610150928">
+<link rel="stylesheet" href="css/pages.css?v=202610150928">
+</head>
+<body>
+<div class="app">
+  <header id="app-header"></header>
+  <div class="page-title-bar" id="page-title"></div>
+  <main class="page-body" id="page-body"></main>
+</div>
+
+<script src="vendor/jquery.min.js"></script>
+<script src="vendor/bootstrap.bundle.min.js"></script>
+<!-- 与其它页面一致：api.js 先于 ui.js 加载，页面脚本最后加载。
+     本页无图表，故不引入 vendor/echarts.min.js（那是 admin.html 等图表页才需要的）。 -->
+<script src="js/api.js?v=202610150928"></script>
+<script src="js/ui.js?v=202610150928"></script>
+<script src="js/layout.js?v=202610150928"></script>
+<script src="js/pages/login.js?v=202610150928"></script>
+</body>
+</html>

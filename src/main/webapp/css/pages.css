@@ -1,0 +1,574 @@
+/* ==========================================================================
+   追风者 · 页面级组件
+   对应设计稿中「只在某一页出现」的元素：地图标注 / 热力图 / 沙盘路径 /
+   参数控件 / 分布条 / 卫星云图 等。所有色值与尺寸取自设计稿导出图。
+   ========================================================================== */
+
+/* ---------- 布局微调 ---------- */
+.page-body { align-items: flex-start; }
+/* P1 地图列：高度不再写死 744px（旧值 = 工具栏 40 + 画布 640 + 时间轴 64），
+   改由地图画布按 804:640 等比派生 —— 1440 设计宽下仍算得 744px、与设计稿逐像素一致；
+   更宽/更窄视口下地图整体等比缩放，底图与各矢量图层不会互相脱节。 */
+.panel-body { display: flex; flex-direction: column; gap: var(--gap-card); }
+
+/* --------------------------------------------------------------------------
+   卡片头部：标题永不被压成竖排
+   标题不换行；副标题过长时整体折到第二行并右对齐（与设计稿 P2 / P4 一致）
+   -------------------------------------------------------------------------- */
+.panel-head { flex-wrap: wrap; row-gap: 3px; }
+.panel-head > .panel-title { flex: none; white-space: nowrap; }
+.panel-head > .panel-sub { margin-left: auto; }
+.panel-head > .zbtn-row { flex: none; }
+.panel-title-row > .panel-sub { margin-left: 0; }
+
+/* 按钮文字不折行 */
+.zbtn { white-space: nowrap; flex: none; }
+
+/* 列表行：标签可压缩、取值不折行 */
+.row-item { flex-wrap: nowrap; }
+.row-item .row-name { flex: 0 1 auto; min-width: 0; }
+.row-item .row-value { flex: 0 0 auto; }
+
+/* ==========================================================================
+   地图（深色实况图）标注
+   地名与经纬刻度的字号、颜色在 app.css 里统一定义（要用到 --lbl-k 反缩放），
+   这里只放与页面相关的公共规则。
+   ========================================================================== */
+.map-layer text { font-family: var(--font-base); }
+
+/* ==========================================================================
+   浅色分析地图（P3 热力图 / P6 沙盘推演图）
+   底图按经纬框非等比拉伸；所有文字用 HTML 浮层，保持字号不被拉伸。
+   ========================================================================== */
+/* 容器保持设计稿原始宽高比（P3 1040×300 / P6 1012×366），保证底图不被变形 */
+.lmap { position: relative; width: 100%; overflow: hidden; background: #F7F9FB; }
+.lmap-heat { aspect-ratio: 1040 / 300; }
+.lmap-sandbox { aspect-ratio: 1012 / 366; }
+.lmap-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* 自动缩放时的经纬网兜底（底图可能已整体移出画面） */
+.lmap-grat { stroke: rgba(91, 107, 123, .18); stroke-width: 1; stroke-dasharray: 4 6; }
+.lmap-grat-label { font-size: 9px; fill: #93A1B0; font-family: var(--font-num); }
+
+.flabel {
+  position: absolute; transform: translate(-50%, -50%);
+  font-size: 11px; color: #5B6B7B; white-space: nowrap; pointer-events: none;
+}
+.lmap-heat .flabel { font-size: 9px; }
+.flabel.is-axis { font-size: 9px; color: #93A1B0; font-family: var(--font-num); }
+.flabel.is-prov { font-size: 10px; color: #6B7B8C; }
+.flabel.is-typhoon { font-size: 11px; font-weight: 500; color: #152A3D; }
+
+.lmap-legend {
+  position: absolute; left: 81.5%; top: 3.3%;
+  background: rgba(255, 255, 255, .92); border-radius: var(--r-sm);
+  box-shadow: inset 0 0 0 1px var(--line);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 7px;
+}
+/* 沙盘图自动缩放提示（浅色底图，故用浅色卡片） */
+.lmap-view-note {
+  position: absolute; left: 12px; bottom: 10px; z-index: 2;
+  padding: 6px 10px; border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, .92);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.45;
+}
+.lmap-view-note b { color: var(--ink); font-weight: var(--fw-medium); }
+.lmap-legend-item { display: flex; align-items: center; gap: 8px; font-size: var(--fs-mini); color: var(--ink-2); white-space: nowrap; }
+.lmap-legend-bar { width: 22px; height: 2.4px; border-radius: 2px; flex: none; }
+
+/* 图例色块 */
+.dot-sq { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; margin-right: 6px; }
+.chart-legend .legend-item { display: inline-flex; align-items: center; font-size: var(--fs-mini); color: var(--ink-2); }
+.heat-legend { padding-top: 2px; }
+
+/* ==========================================================================
+   P4 检索条胶囊
+   ========================================================================== */
+.chips { display: flex; align-items: center; gap: 10px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 12px;
+  background: var(--row-alt); border-radius: var(--r-inner);
+  font-size: var(--fs-body);
+}
+.chip-k { font-style: normal; color: var(--ink-3); }
+.chip-v { color: var(--ink); font-weight: var(--fw-medium); }
+
+/* ==========================================================================
+   P8 检索条件字段
+   ========================================================================== */
+.query-form { display: flex; flex-direction: column; gap: var(--gap-card); }
+.query-fields { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.field-box {
+  height: 48px; padding: 7px 10px;
+  background: var(--row-alt); border-radius: var(--r-inner);
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+}
+.field-box-label { font-size: 9px; color: var(--ink-3); line-height: 1.3; }
+.field-box-value { font-size: 11px; color: var(--ink); font-weight: var(--fw-medium); line-height: 1.4; }
+.field-box-value.is-hint { color: var(--ink-2); font-weight: var(--fw-regular); }
+.zbtn-row.is-inline { justify-content: flex-start; }
+.zbtn-row.is-inline .zbtn { flex: none; }
+
+/* ==========================================================================
+   P5 / P8 统计型键值行
+   ========================================================================== */
+.kv-lines { display: flex; flex-direction: column; gap: 12px; }
+.kv-line { display: flex; flex-direction: column; gap: 2px; }
+.kv-line-k { font-size: var(--fs-mini); color: var(--ink-3); line-height: 1.4; }
+.kv-line-v { font-size: var(--fs-body); color: var(--ink); font-weight: var(--fw-medium); line-height: 1.45; }
+.kv-line-v .kv-strong { color: var(--brand); }
+
+.rows .row-item.is-sm .row-name { font-size: var(--fs-sub); color: var(--ink-2); }
+.rows .row-item.is-sm .row-value { font-size: var(--fs-sub); }
+
+/* ==========================================================================
+   P10 系统参数设置
+   ========================================================================== */
+.param-rows { display: flex; flex-direction: column; gap: 10px; }
+.param-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.param-left { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.param-key { font-size: var(--fs-sub); color: var(--brand); font-family: var(--font-num); line-height: 1.4; }
+.param-desc { font-size: var(--fs-mini); color: var(--ink-3); line-height: 1.4; }
+.param-value { font-size: var(--fs-sub); color: var(--ink); font-weight: var(--fw-medium); white-space: nowrap; }
+
+/* ==========================================================================
+   双行信息项列表
+   ========================================================================== */
+.stack-list { display: flex; flex-direction: column; gap: 12px; }
+
+/* ==========================================================================
+   P4 风险评估
+   ========================================================================== */
+.metric-tile.is-risk { background: #FDF6E8; }
+.metric-tile.is-risk .metric-value { color: #C77400; }
+.col-fill .metric-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.dist-rows .row-value { display: inline-flex; align-items: center; gap: 6px; }
+.dist-rows .num-txt { font-family: var(--font-num); color: var(--ink); font-weight: var(--fw-medium); }
+.dist-rows .risk-sep { font-style: normal; color: var(--ink-3); }
+.dist-rows em { font-style: normal; }
+
+.slot-row {
+  display: grid; grid-template-columns: 168px 1fr; align-items: center; gap: 10px;
+  padding: 10px; border-radius: var(--r-inner);
+}
+.slot-time { font-size: var(--fs-body); color: var(--ink); font-weight: var(--fw-medium); font-family: var(--font-num); }
+.slot-body { font-size: var(--fs-body); line-height: 1.5; }
+.slot-body b { font-weight: var(--fw-medium); }
+.slot-row.is-mid  { background: #FDF6E8; }
+.slot-row.is-mid  .slot-body b { color: #C77400; }
+.slot-row.is-high { background: #FDEDEC; }
+.slot-row.is-high .slot-body b { color: #D8322B; }
+.slot-row.is-low  { background: #EAF7EF; }
+.slot-row.is-low  .slot-body b { color: #2FA84F; }
+.slot-body .slot-desc { color: #5B6B7B; }
+
+/* P4 右侧评分 */
+.risk-score { display: flex; flex-direction: column; gap: 6px; }
+.risk-score-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.risk-score-value { font-size: 26px; font-weight: var(--fw-bold); line-height: 1.15; }
+.risk-score-sub { font-size: var(--fs-mini); color: var(--ink-2); }
+
+/* ==========================================================================
+   P3 分歧量化
+   ========================================================================== */
+.km-rows { display: flex; flex-direction: column; gap: 6px; }
+.km-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.km-name { font-size: var(--fs-sub); color: var(--ink-2); }
+.km-value { font-size: var(--fs-body); color: var(--ink); font-weight: var(--fw-medium); font-family: var(--font-num); white-space: nowrap; }
+.km-index { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.km-index .bar-line { gap: 10px; }
+.km-index-value { font-size: 20px; font-weight: var(--fw-bold); color: #E8833A; line-height: 1.2; text-align: right; font-family: var(--font-num); }
+.km-index-value small { font-size: var(--fs-sub); font-weight: var(--fw-regular); color: var(--ink-2); }
+
+/* ==========================================================================
+   P7 分组水平条形图
+   ========================================================================== */
+.hg { display: flex; flex-direction: column; gap: 16px; }
+.hg-group { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 12px; }
+.hg-name { font-size: var(--fs-sub); color: var(--ink); font-weight: var(--fw-medium); }
+.hg-bars { display: flex; flex-direction: column; gap: 5px; }
+.hg-row { display: flex; align-items: center; gap: 10px; }
+.hg-track { position: relative; flex: 1; height: 11px; border-radius: 2px; background: var(--row-alt); }
+.hg-track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.hg-value { width: 46px; flex: none; font-size: var(--fs-mini); color: var(--ink-2); font-family: var(--font-num); }
+.hg-legend { padding-top: 4px; }
+
+/* ==========================================================================
+   P8 峰值强度分布
+   ========================================================================== */
+.dist { display: flex; flex-direction: column; gap: 9px; }
+.dist-row { display: grid; grid-template-columns: 60px 1fr 44px; align-items: center; gap: 10px; }
+.dist-name { font-size: var(--fs-sub); color: var(--ink); }
+.dist-track { position: relative; height: 11px; border-radius: 2px; background: var(--row-alt); }
+.dist-track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.dist-count { font-size: var(--fs-mini); color: var(--ink-2); text-align: right; font-family: var(--font-num); }
+
+/* P8 导出记录 */
+.export-rows .row-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-rows .row-value { color: var(--ink); }
+.export-rows .row-date { font-size: var(--fs-mini); color: var(--ink-3); font-family: var(--font-num); }
+
+/* ==========================================================================
+   P2 台风详情
+   ========================================================================== */
+.detail-hero { display: flex; flex-direction: column; gap: 6px; }
+.detail-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hero-name { display: flex; align-items: center; gap: 10px; }
+.hero-name .hero-cn { font-size: 22px; font-weight: var(--fw-bold); color: var(--ink); line-height: 1.2; }
+.hero-name .hero-en { font-size: 22px; font-weight: var(--fw-bold); color: var(--brand); line-height: 1.2; letter-spacing: .5px; }
+.hero-tags { display: flex; align-items: center; gap: 8px; }
+.hero-meta { font-size: var(--fs-sub); color: var(--ink-2); }
+.tag.is-active { color: var(--ok); background: var(--ok-bg); }
+
+.wc-rows { display: flex; flex-direction: column; gap: 9px; }
+.wc-row { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.wc-head { display: flex; align-items: center; gap: 6px; flex: none; }
+.wc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.wc-name { font-size: var(--fs-sub); font-weight: var(--fw-medium); white-space: nowrap; }
+.wc-values { font-size: var(--fs-mini); color: var(--ink-2); font-family: var(--font-num); letter-spacing: .2px; white-space: nowrap; }
+
+.satellite { position: relative; border-radius: var(--r-inner); overflow: hidden; background: #12233A; }
+.sat-svg { display: block; width: 100%; height: auto; }
+.sat-caption {
+  position: absolute; left: 10px; bottom: 7px;
+  font-size: 9px; color: rgba(255, 255, 255, .82); font-family: var(--font-num);
+}
+
+/* ==========================================================================
+   P6 沙盘
+   ========================================================================== */
+.sandbox-scenes { display: flex; flex-direction: column; gap: 8px; }
+.scene-item .scene-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.scene-item .scene-risk { font-size: var(--fs-mini); font-weight: var(--fw-medium); white-space: nowrap; }
+.scene-item .scene-lines { display: flex; flex-direction: column; gap: 1px; }
+/* 归属 / 公开标签 + 公开开关。单独一行，避免把卡片头挤成三栏后名称被压折行 */
+.scene-item .scene-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 3px;
+}
+.scene-item .scene-tags { display: flex; align-items: center; gap: 4px; }
+
+/* 滑块参数 */
+.slider-list { display: flex; flex-direction: column; gap: 12px; }
+.baseline-pick {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; background: var(--row-alt); border-radius: var(--r-inner);
+}
+.baseline-pick .bp-label { font-size: 9px; color: var(--ink-3); }
+.baseline-pick .bp-name { font-size: var(--fs-sub); color: var(--ink); font-weight: var(--fw-medium); }
+
+/* ==========================================================================
+   P7 问卷
+   ========================================================================== */
+.qa-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* ==========================================================================
+   P9 接口说明
+   ========================================================================== */
+.code-txt { font-family: var(--font-num); font-size: var(--fs-body); }
+.method { font-family: var(--font-num); font-weight: var(--fw-bold); font-size: var(--fs-head); letter-spacing: .4px; }
+.method.is-post { color: #2FA84F; }
+.method.is-get  { color: var(--brand); }
+.api-path { color: var(--ink-2); font-family: var(--font-num); }
+.agency-code { font-family: var(--font-num); font-weight: var(--fw-bold); font-size: var(--fs-head); letter-spacing: .4px; }
+
+/* ==========================================================================
+   P8 档案结果高亮行（活跃台风）
+   ========================================================================== */
+.trow.is-active { background: #FDF6E8; }
+.trow .cell-strong { color: var(--ink); font-weight: var(--fw-medium); }
+.trow .cell-agency { font-weight: var(--fw-medium); }
+/* 单元格内竖分隔线（设计稿 24h | 48h） */
+.cell-sep {
+  display: inline-block; width: 1px; height: 11px; background: var(--divider);
+  margin: 0 11px; vertical-align: -1px;
+}
+.state-cell { display: inline-flex; align-items: center; gap: 6px; }
+.state-cell .state-op { color: var(--brand); }
+
+/* ==========================================================================
+   表格变体：P5 对比表左列强调
+   ========================================================================== */
+.tbl.is-compare .trow > span:first-child { color: var(--ink); font-weight: var(--fw-medium); }
+.tbl.is-compare .tbl-head > span:first-child { color: var(--ink-2); }
+.rate { font-family: var(--font-num); font-weight: var(--fw-medium); }
+.rate.is-good { color: #2FA84F; }
+.rate.is-mid  { color: #C77400; }
+.rate.is-low  { color: var(--ink-3); }
+.rate.is-mute { color: var(--ink-3); }
+
+/* ==========================================================================
+   P1 侧栏细节
+   ========================================================================== */
+.panel-title.is-lg { font-size: 17px; font-weight: var(--fw-bold); line-height: 1.25; }
+.search-box.is-block { width: 100%; }
+
+/* 左栏「台风列表」：活跃台风 / 历史档案 两组分列，Tab 驱动数据源（不再混排） */
+.tabs .tab { display: flex; align-items: center; justify-content: center; gap: 5px; }
+.tab-count {
+  font-style: normal; font-family: var(--font-num);
+  font-size: 10px; font-weight: var(--fw-medium); line-height: 1;
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
+  display: inline-grid; place-items: center;
+  background: var(--line); color: var(--ink-2);
+}
+.tab.is-active .tab-count { background: var(--brand-soft); color: var(--brand); }
+/* 历史档案 12 条超出面板高度，列表区独立滚动，面板高度随内容自适应 */
+.ty-list-host {
+  max-height: 462px; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.ty-list-host::-webkit-scrollbar { width: 4px; }
+.ty-list-host::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+.ty-list-host::-webkit-scrollbar-track { background: transparent; }
+.ty-list-host > .ty-list { padding: 1px 0; }   /* 防止选中态描边被滚动容器裁切 */
+.ty-hint {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 10px; border-radius: var(--r-inner);
+  background: var(--row-alt);
+  font-size: var(--fs-mini); color: var(--ink-3); line-height: 1.5;
+}
+.ty-hint-dot {
+  flex: none; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ok); box-shadow: 0 0 0 3px rgba(47, 168, 79, .15);
+}
+/* 左栏窄（264px），提示文案要能换行而不是把按钮挤出去 */
+.ty-hint > span { min-width: 0; }
+/* 「返回最新」：只在聚焦的不是最新活跃台风时出现，靠 margin-left:auto 贴到右端 */
+.ty-hint-back {
+  flex: none; margin-left: auto;
+  font-size: var(--fs-mini); color: var(--brand); white-space: nowrap;
+  transition: color .13s;
+}
+.ty-hint-back:hover { color: #0B4770; text-decoration: underline; }
+.ty-hint-back:focus-visible { outline: 1px solid var(--brand); outline-offset: 1px; }
+.ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ai-tile {
+  padding: 7px 8px; background: var(--row-alt); border-radius: var(--r-inner);
+  display: flex; align-items: center; gap: 5px;
+  font-size: var(--fs-mini); color: var(--ink); line-height: 1.35;
+}
+.ai-tile .ai-conf { color: var(--brand); font-weight: var(--fw-medium); font-family: var(--font-num); white-space: nowrap; }
+.ai-dot { font-style: normal; color: var(--ink-3); }
+.ai-tile.is-off { color: var(--ink-3); }
+.ai-tile.is-off .ai-conf { color: var(--ink-3); font-weight: var(--fw-regular); }
+.ai-note { display: flex; flex-direction: column; gap: 3px; }
+.ai-note-title { font-size: var(--fs-sub); font-weight: var(--fw-medium); color: var(--ink); }
+.ai-note-text { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.55; }
+.play-btn.is-playing { background: #0B4770; box-shadow: 0 0 0 3px rgba(14, 84, 132, .16); }
+.metric-label { font-size: var(--fs-mini); color: var(--ink-3); line-height: 1.4; }
+
+/* ==========================================================================
+   通用小工具
+   ========================================================================== */
+.sub-inline { font-size: var(--fs-mini); color: var(--ink-3); }
+.link-inline { font-size: var(--fs-sub); color: var(--brand); cursor: pointer; transition: color .13s; }
+.link-inline:hover { color: #0B4770; text-decoration: underline; }
+.link-inline:active { color: #093C61; }
+.panel-foot { display: flex; justify-content: center; padding-top: 2px; }
+.gap-8 { gap: 8px; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-col.gap-10 { gap: 10px; }
+.flex-col.gap-12 { gap: 12px; }
+.min-w-0 { min-width: 0; }
+
+/* ==========================================================================
+   表格补充：无底色表头 / 行容器 / 空态
+   ========================================================================== */
+.tbl.is-plain .tbl-head { background: transparent; }
+
+/* 列宽修饰（依设计稿：P2-P5 侧列 320 / P7 侧列 360 / P6·P8-P10 侧列 340） */
+.col-side.is-narrow { width: 320px; }
+.col-side.is-wide   { width: 360px; }
+.tbl-rows { display: flex; flex-direction: column; gap: var(--gap-card); }
+.empty-row {
+  padding: 18px 10px; text-align: center;
+  font-size: var(--fs-body); color: var(--ink-3);
+  background: var(--row-alt); border-radius: var(--r-inner);
+}
+.state-cell .state-txt { font-style: normal; white-space: nowrap; }
+.num-amber { color: #C77400; font-family: var(--font-num); }
+
+/* ==========================================================================
+   段落与说明文字
+   ========================================================================== */
+.para { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.7; }
+.para-block { display: flex; flex-direction: column; gap: 8px; }
+.note-title { display: block; font-size: var(--fs-sub); font-weight: var(--fw-medium); color: var(--ink); margin-bottom: 3px; }
+.note-text { display: block; font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.6; }
+
+/* ==========================================================================
+   编号结论列表（P5 归因结论 / P7 关键发现 / P9 测算机制）
+   ========================================================================== */
+.attr-list { display: flex; flex-direction: column; gap: 9px; }
+.attr-item { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 4px; }
+.attr-no { font-size: var(--fs-mini); color: var(--brand); font-style: normal; line-height: 1.55; }
+.attr-text { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.65; }
+.attr-text b { color: var(--ink); font-weight: var(--fw-medium); }
+
+/* ==========================================================================
+   P5 灾情档案 / 相似度备注
+   ========================================================================== */
+.casualty-list { display: flex; flex-direction: column; gap: 14px; }
+.casualty { display: flex; flex-direction: column; gap: 3px; }
+.casualty-title { font-size: var(--fs-sub); font-weight: var(--fw-medium); color: var(--ink); line-height: 1.4; }
+.casualty-meta { font-size: 9px; color: var(--ink-3); line-height: 1.45; }
+.casualty-loss { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.45; }
+.casualty-desc { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.55; }
+
+.rate-note { font-style: normal; font-weight: var(--fw-regular); }
+
+/* ==========================================================================
+   P3 分歧解读 / 高危信号
+   ========================================================================== */
+.ai-tag { font-size: var(--fs-mini); color: var(--brand); font-family: var(--font-num); }
+.head-flag { font-size: var(--fs-mini); font-weight: var(--fw-medium); }
+.km-index-line { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: 10px; }
+.km-index-line .bar { position: relative; display: block; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.km-index-line .bar > i { display: block; height: 100%; border-radius: 3px; }
+.hazard-rows { display: flex; flex-direction: column; gap: 10px; }
+.hazard-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; align-items: center; gap: 10px; }
+.hz-name { font-size: var(--fs-sub); color: var(--ink-2); }
+.hz-value { font-size: var(--fs-sub); color: var(--ink); font-weight: var(--fw-medium); font-family: var(--font-num); }
+.hz-level { font-size: var(--fs-sub); font-weight: var(--fw-medium); text-align: right; }
+
+/* ==========================================================================
+   P4 分时段与推算规则
+   ========================================================================== */
+.slot-list { display: flex; flex-direction: column; gap: 8px; }
+.rule-rows { display: flex; flex-direction: column; gap: 8px; }
+.rule-row { display: flex; gap: 4px; align-items: flex-start; }
+.rule-k { font-size: var(--fs-mini); color: var(--ink-3); font-weight: var(--fw-regular); white-space: nowrap; }
+.rule-v { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.6; }
+
+/* ==========================================================================
+   P6 沙盘操作区
+   ========================================================================== */
+.sandbox-actions { display: flex; gap: 8px; }
+.sandbox-actions .zbtn { flex: 1; padding: 0 8px; white-space: nowrap; }
+.sandbox-actions .zbtn.is-fill { flex: 1.4; }
+
+/* ==========================================================================
+   P10 后台概览与待办
+   ========================================================================== */
+.ov-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ov-tile {
+  background: var(--row-alt); border-radius: var(--r-sm); padding: 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ov-label { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.4; }
+.ov-value { font-size: var(--fs-metric); font-weight: var(--fw-bold); color: var(--brand); line-height: 1.15; font-family: var(--font-num); }
+
+.todo-list { display: flex; flex-direction: column; gap: 10px; }
+.todo-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.todo-title { font-size: var(--fs-sub); color: var(--ink); line-height: 1.45; }
+.todo-src { font-size: 9px; color: var(--ink-3); line-height: 1.4; }
+.todo-state { font-size: var(--fs-mini); font-weight: var(--fw-medium); white-space: nowrap; line-height: 1.5; }
+
+/* ==========================================================================
+   P2 实况概览与 AI 测算
+   ========================================================================== */
+/* 设计稿：四指标按内容宽度左紧密排列，块间距 40px（不铺满整行） */
+.hero-metrics { display: flex; align-items: flex-start; gap: 40px; }
+.hero-metric { display: flex; flex-direction: column; gap: 3px; flex: none; }
+.hero-metric .hm-label { font-size: var(--fs-mini); color: var(--ink-3); line-height: 1.4; }
+.hero-metric .hm-value { font-size: 17px; font-weight: var(--fw-semi); color: var(--ink); line-height: 1.3; font-family: var(--font-num); }
+
+.ai-trow { grid-template-columns: 170px minmax(0, 1fr); }
+.ai-name { font-size: var(--fs-body); color: var(--ink); font-weight: var(--fw-medium); }
+.ai-name i { font-style: normal; font-size: var(--fs-mini); color: var(--ink-3); font-family: var(--font-num); }
+.ai-detail { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.ai-sep { color: var(--ink-3); }
+.ai-state { font-size: var(--fs-mini); color: var(--warn-ink); letter-spacing: .3px; }
+
+/* ==========================================================================
+   P8 检索输入
+   ========================================================================== */
+.field-input {
+  width: 100%; height: 18px; padding: 0; border: 0; background: none; outline: none;
+  font-size: 11px; font-weight: var(--fw-medium); color: var(--ink);
+}
+.field-input::placeholder { color: var(--ink-2); font-weight: var(--fw-regular); }
+
+/* 下拉筛选框：外观与 .field-input 保持一致（无边框、透明底），
+   右下角自绘箭头，避免各浏览器原生 select 外观差异。 */
+.field-select {
+  width: 100%; height: 18px; padding: 0 14px 0 0; border: 0; outline: none; cursor: pointer;
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5'><path d='M0 0l4 5 4-5z' fill='%238A98A8'/></svg>") no-repeat right 2px center;
+  font-family: var(--font-base);
+  font-size: 11px; font-weight: var(--fw-medium); color: var(--ink);
+  text-overflow: ellipsis;
+}
+.field-select:hover { color: var(--brand); }
+.field-select:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+
+/* ==========================================================================
+   P9 术语
+   ========================================================================== */
+.term-list { display: flex; flex-direction: column; gap: 8px; }
+.term-item { display: flex; gap: 4px; align-items: flex-start; }
+.term-name { font-size: var(--fs-mini); color: var(--ink); font-weight: var(--fw-medium); white-space: nowrap; }
+.term-def { font-size: var(--fs-mini); color: var(--ink-2); line-height: 1.62; }
+
+/* ==========================================================================
+   本轮功能补全（P8 详情跳转 / P6 动态路径 / 登录注册页 / P7 问卷作答）
+   颜色一律走 CSS 变量；交互元素四态（hover / active / focus-visible）齐全。
+   ========================================================================== */
+
+/* ---- P8：档案表格「查看详情」由纯文本 <i> 改为可跳转链接 ----
+   .state-cell .state-op 的 color: var(--brand) 已在上方定义，这里只补链接态。 */
+.state-cell a.state-op { text-decoration: none; cursor: pointer; transition: color .13s; }
+.state-cell a.state-op:hover { color: #0B4770; text-decoration: underline; }
+.state-cell a.state-op:active { color: #093C61; }
+.state-cell a.state-op:focus-visible { outline: 2px solid var(--brand-light); outline-offset: 1px; border-radius: 2px; }
+
+/* ---- P6：沙盘地图上的数据驱动路径叠加层 ----
+   底图仍是设计稿矢量（assets/svg/lmap-sandbox.svg），
+   但原图里画死的三条曲线已从 SVG 中移除，改由后端返回的经纬点实时投影绘制，
+   单独放在一层 .lmap-svg.is-overlay 中（.lmap-svg 已是 absolute inset:0 100%/100%）。
+   叠加层在 DOM 里排在 .lmap-legend 之前，故图例仍压在最上层；
+   叠加层本身不吃鼠标事件，避免挡住底图城市点。 */
+.lmap-svg.is-overlay { pointer-events: none; z-index: 1; }
+.lmap-legend { z-index: 2; }
+
+/* ---- 登录 / 注册页（login.html） ---- */
+.auth-wrap { display: flex; justify-content: center; padding: 8px 0 24px; }
+.auth-card { width: 100%; max-width: 440px; }
+.auth-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.auth-tab {
+  flex: 1; height: 32px; border: 1px solid var(--line); border-radius: var(--r-inner);
+  background: var(--card); color: var(--ink-2); cursor: pointer;
+  font-size: var(--fs-sub); font-family: inherit; transition: background .13s, color .13s, border-color .13s;
+}
+.auth-tab:hover { background: var(--brand-soft); border-color: var(--brand-light); color: var(--brand); }
+.auth-tab:active { background: #D6E6F3; }
+.auth-tab:focus-visible { outline: 2px solid var(--brand-light); outline-offset: 1px; }
+.auth-tab.is-active { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: var(--fw-medium); }
+.auth-form { display: flex; flex-direction: column; gap: 12px; }
+.auth-msg {
+  font-size: var(--fs-mini); line-height: 1.6; padding: 8px 10px;
+  border-radius: var(--r-inner); background: var(--row-alt); color: var(--ink-2);
+}
+.auth-msg.is-error { background: #FDECEA; color: #B3261E; }
+.auth-switch { font-size: var(--fs-mini); color: var(--ink-3); text-align: center; }
+.auth-switch a { color: var(--brand); cursor: pointer; text-decoration: none; transition: color .13s; }
+.auth-switch a:hover { color: #0B4770; text-decoration: underline; }
+.auth-switch a:active { color: #093C61; }
+.auth-switch a:focus-visible { outline: 2px solid var(--brand-light); outline-offset: 1px; border-radius: 2px; }
+.auth-hint { margin-top: 10px; }
+
+/* ---- P7：问卷作答表单（并入「问卷填写」面板内，不新增 .panel 节点） ---- */
+.qa-form {
+  display: flex; flex-direction: column; gap: 12px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+}
+.qa-field { display: flex; flex-direction: column; gap: 6px; }
+.qa-label { font-size: var(--fs-mini); color: var(--ink-2); font-weight: var(--fw-medium); }
+.qa-opts { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.qa-opt { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-mini); color: var(--ink-2); cursor: pointer; }
+.qa-opt:hover { color: var(--brand); }
+.qa-opt input { cursor: pointer; accent-color: var(--brand); }
+.qa-actions { display: flex; gap: 8px; }
+.qa-actions .zbtn { flex: 1; }
