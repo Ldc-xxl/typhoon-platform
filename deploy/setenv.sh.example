@@ -1,0 +1,55 @@
+# ============================================================================
+#  追风者 · Tomcat 启动参数（公网部署）
+#  ---------------------------------------------------------------------------
+#  用法：
+#    cp deploy/setenv.sh.example $CATALINA_BASE/bin/setenv.sh
+#    chmod +x $CATALINA_BASE/bin/setenv.sh
+#    然后编辑下面的值。Tomcat 启动时会自动 source 它。
+#
+#  为什么推荐把数据库口令写在这里，而不是打进 WAR 里的 db.properties：
+#    DBUtil.getConfig() 的优先级是「系统属性 > db.properties」。
+#    所以用 -Djdbc.url / -Djdbc.password 注入即可覆盖，无需重新 mvn package，
+#    而且 WAR 文件本身可以拿去任何机器而不含明文口令（db.properties 已被 .gitignore
+#    排除，但打进 WAR 就等于随包外流了）。
+# ============================================================================
+
+# ---- JVM 堆 ----
+# 2g 内存的服务器用下面这组；4g 可以把 Xms 提到 1g
+export JAVA_OPTS="$JAVA_OPTS -Xms512m -Xmx1024m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$CATALINA_BASE/logs"
+
+# ---- 字符集：页面与接口里的中文全靠它 ----
+export JAVA_OPTS="$JAVA_OPTS -Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
+
+# ============================================================================
+#  数据库连接 —— 全部用系统属性覆盖，不要改 WAR 里的 db.properties
+# ============================================================================
+
+# --- 方案 A（推荐）：数据留在你自己电脑上，服务器通过 SSH 隧道连 ---
+# 在服务器上执行 deploy/tunnel.sh 建好隧道后，MySQL 就在本机 127.0.0.1:13306
+export CATALINA_OPTS="$CATALINA_OPTS -Djdbc.url=jdbc:mysql://127.0.0.1:13306/typhoon_monitor?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&cachePrepStmts=true&prepStmtCacheSize=500&prepStmtCacheSqlLimit=2048"
+export CATALINA_OPTS="$CATALINA_OPTS -Djdbc.username=zfz_app"
+export CATALINA_OPTS="$CATALINA_OPTS -Djdbc.password=改成隧道用的那个账号口令"
+
+# --- 方案 B：服务器自建 MySQL（详见 docs/deployment-guide.md 第 4 节） ---
+# export CATALINA_OPTS="$CATALINA_OPTS -Djdbc.url=jdbc:mysql://127.0.0.1:3306/typhoon_monitor?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+# export CATALINA_OPTS="$CATALINA_OPTS -Djdbc.username=typhoon"
+# export CATALINA_OPTS="$CATALINA_OPTS -Djdbc.password=改成服务器上那个账号口令"
+
+# --- 方案 C：直连开发机（⚠️ 不推荐，等于把 3306 开到公网） ---
+# 用之前务必确认防火墙只对服务器 IP 放行，且开发机 MySQL 账号不是 root。
+# export CATALINA_OPTS="$CATALINA_OPTS -Djdbc.url=jdbc:mysql://你的公网IP:3306/typhoon_monitor?..."
+
+# ---- 连接池（课程要求可参数化；公网按并发量微调） ----
+export CATALINA_OPTS="$CATALINA_OPTS -Dpool.initialSize=5 -Dpool.maxActive=30 -Dpool.maxIdle=15 -Dpool.minIdle=5 -Dpool.maxWait=5000"
+
+# ---- 部署期必须 false：打印每条 SQL 会把日志刷爆，也会拖慢响应 ----
+export CATALINA_OPTS="$CATALINA_OPTS -Dsql.show=false"
+
+# ---- 联系方式加密密钥 ----
+# ⚠️ 必须和你本机 db.properties 里的 contact.cipher.key 完全一致，
+#    否则问卷/反馈里已加密的手机号、邮箱解不开（列表接口会静默显示为空）。
+#    这个值不是口令，写成一句你自己的话即可，实现会 SHA-256 派生成 32 字节。
+export CATALINA_OPTS="$CATALINA_OPTS -Dcontact.cipher.key=改成和本机一样的值"
+
+# ---- 时区：影响风险评估里「登陆前 N 小时」的判定边界 ----
+export CATALINA_OPTS="$CATALINA_OPTS -Duser.timezone=Asia/Shanghai"

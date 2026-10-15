@@ -1,0 +1,136 @@
+# ============================================================================
+#  追风者 · 公网部署 · Nginx 反向代理配置（示例）
+#  ---------------------------------------------------------------------------
+#  用法：
+#    1) cp deploy/nginx.conf.example /etc/nginx/conf.d/typhoon.conf
+#    2) 把 server_name 改成你的域名
+#    3) 把 ssl_certificate 两行改成 certbot 签发后的真实路径
+#       （Ubuntu 会在 /etc/letsencrypt/live/<域名>/ 下生成 fullchain.pem / privkey.pem）
+#    4) nginx -t && systemctl reload nginx
+#
+#  关键设计（三处最容易踩坑，均在下面标了「为什么」）：
+#    · 公网 URL 保留 /typhoon_platform 前缀 —— Cookie 的 Path 才对得上
+#    · 只放行 80/443，8080 绑 127.0.0.1 不出网
+#    · 必须透传 X-Forwarded-*，否则后端看到的请求协议永远是 http
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+#  HTTP :80 —— 只做两件事：ACME 域名验证 + 跳 HTTPS
+#  certbot webroot 续期时会请求 http://<域名>/.well-known/acme-challenge/xxx
+# ---------------------------------------------------------------------------
+server {
+    listen      80;
+    listen      [::]:80;
+    server_name typhoon.example.com;
+
+    # certbot 的验证目录必须能被匿名读到
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---------------------------------------------------------------------------
+#  HTTPS :443 —— 真正的入口
+# ---------------------------------------------------------------------------
+server {
+    listen      443 ssl;
+    listen      [::]:443;
+    http2       on;                       # nginx >= 1.25.1 的写法；旧版本改用 listen 443 ssl http2;
+    server_name typhoon.example.com;
+
+    # ---- 证书 ----
+    ssl_certificate     /etc/letsencrypt/live/typhoon.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/typhoon.example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # ---- 反代目标：Tomcat，且只允许本机访问 ----
+    upstream tomcat {
+        server 127.0.0.1:8080;
+        keepalive 32;                     # 长连接，省掉每次请求的 TCP 握手
+    }
+
+    # 问卷/反馈要传文件、后台要导 Excel，给足上传体积
+    client_max_body_size 20m;
+    client_body_timeout  60s;
+
+    # ---- 反向代理头 ----
+    # 为什么必须传：Tomcat 自己看到的 scheme 是 http（它跟 Nginx 之间是明文）。
+    # 不传 X-Forwarded-Proto，后端日志里全是 http，将来排查 HTTPS 问题会走弯路。
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host  $host;
+    proxy_http_version 1.1;
+    proxy_set_header Connection        "";   # 配合 upstream keepalive
+
+    proxy_connect_timeout 10s;
+    proxy_send_timeout    60s;
+    proxy_read_timeout    60s;
+
+    # ---- 安全响应头 ----
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options    "nosniff" always;
+    add_header X-Frame-Options           "SAMEORIGIN" always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+
+    # ---- Cookie 加 Secure / SameSite ----
+    # web.xml 里只声明了 http-only，没声明 secure（因为本机开发走 http，写死 secure 会让
+    # 本地登录失败）。在反代层补齐，代码就不用动，本地也不受影响。
+    # 要求 nginx >= 1.19.3。
+    proxy_cookie_flags ~ secure httponly samesite=lax;
+
+    # ---- gzip ----
+    # 注意：SVG 里有大量路径坐标，压缩比很高；接口 JSON 不压（no-store 且变化频繁）
+    gzip              on;
+    gzip_vary         on;
+    gzip_min_length   1024;
+    gzip_comp_level   5;
+    gzip_types        text/plain text/css text/javascript application/javascript
+                      application/json image/svg+xml application/xml font/woff2;
+
+    # =========================================================================
+    #  业务转发
+    # =========================================================================
+
+    # 为什么公网 URL 要保留 /typhoon_platform 这一段，而不是让域名根直接映射到 WAR？
+    #   Tomcat 写出的会话 Cookie 的 Path 取自 contextPath，即 /typhoon_platform。
+    #   如果浏览器在 https://typhoon.example.com/ 下访问，Cookie 的 Path 匹配不上
+    #   /api/... 这些请求，于是浏览器根本不回传 JSESSIONID —— 表现为
+    #   「登录接口返回成功，但刷新一下就又变成未登录」，极难排查。
+    #   保留前缀 = URL 里带上下文 = Cookie Path 与请求路径天然一致，零额外配置。
+    #   （若你坚持要干净域名，用 proxy_cookie_path /typhoon_platform /; 改写 Cookie Path，
+    #     同时把下面这段换成 location / { proxy_pass .../typhoon_platform/; }，
+    #     两处必须一起改，只改一处就会掉进上面那个坑。）
+    location /typhoon_platform/ {
+        proxy_pass http://tomcat;
+    }
+
+    # ---- 第三方库：长缓存 ----
+    # 应用自己的 CacheFilter 已经把 /vendor/ 设成 1 天、其余设成 no-cache，
+    # 这里再压一层是为省掉每次的条件请求往返；两者不冲突（响应头取多者中最严格）。
+    location ^~ /typhoon_platform/vendor/ {
+        proxy_pass http://tomcat;
+        proxy_cache_valid 200 1d;
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # ---- 搜索引擎：一套课程项目没必要被收录 ----
+    location = /robots.txt {
+        access_log off;
+        default_type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+
+    # 兜底：把裸域名 / 其他路径也导到应用根，至少给个 302 而不是 Nginx 默认 404
+    location / {
+        return 302 /typhoon_platform/;
+    }
+}
