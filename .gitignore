@@ -39,3 +39,6 @@ _probe_shots/
 # ---- 外部数据缓存 ----
 # Natural Earth 海岸线 TopoJSON，gen-wpac-coast.py 需要时自动下载
 tools/.cache/
+
+# ---- 上传断点续传状态（本机临时产物）----
+tools/.blob-state.json
