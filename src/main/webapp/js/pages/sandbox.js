@@ -8,7 +8,7 @@
      GET  /api/sandbox/scenarios/params   四项参数的可调范围（用于设置滑杆 min/max）
      GET  /api/sandbox/scenarios          情景库：已登录返回「公开的 ∪ 自己的」，
                                           匿名只返回公开的；VO 带 mine / shared 标记
-     GET  /api/typhoons?status=ACTIVE     基准台风
+     GET  /api/typhoons?status=ACTIVE     基准台风 + 下拉候选（只列在编台风：推演需要 CMA 预报路径）
      GET  /api/typhoons/{id}/forecast-paths  基准路径（CMA 预报，与后端做偏移用的是同一份基底）
      POST /api/sandbox/scenarios          运行推演；save=1 时同时落库
      PUT  /api/sandbox/scenarios/{id}/share   公开 / 取消公开（仅自己创建的那几条）
@@ -27,12 +27,13 @@
   /**
    * 页面运行时状态：接口返回后填充，交互只读写这里。
    * @type {{current: (Object|null), params: (Object|null), scenarios: Array<Object>,
-   *         sliders: Array<Object>, lastRun: (Object|null),
+   *         sliders: Array<Object>, lastRun: (Object|null), actives: Array<Object>,
    *         basePath: (Array<Array<number>>|null), simPath: (Array<Array<number>>|null),
    *         mapSeq: number}}
    */
   var state = {
     current: null, params: null, scenarios: [], sliders: [], lastRun: null,
+    actives: [],      /* 在编（ACTIVE）台风清单：基准台风下拉的候选，来自 /api/typhoons?status=ACTIVE */
     basePath: null,   /* 基准路径点 [[lon,lat],...]，来自 CMA 预报 */
     simPath: null,    /* 按当前参数扰动后的模拟路径点 [[lon,lat],...] */
     sceneIndex: null, /* 当前从情景库载入的那条（下标），仅用于高亮，null=未选 */
@@ -267,19 +268,77 @@
   /* ---------------- 参数控制 ---------------- */
 
   /**
+   * 基准台风的一行文案，例：'飞燕 FEIYAN · 202615 · ACTIVE'。
+   * @param {Object|null} t 台风 VO
+   * @returns {string}
+   */
+  function typhoonLine(t) {
+    return t ? t.nameCn + ' ' + t.nameEn + ' · ' + t.code + ' · ' + t.status : '暂无活跃台风';
+  }
+
+  /**
+   * 基准台风选择器：一个「更换 ▾」按钮 + 点击展开的列表。
+   *
+   * <p><b>为什么从"点一次换一只"改成列表</b>：原来那只按钮在活跃台风之间轮换，
+   * 活跃 3 只时想从第 1 只换到第 3 只要点两次，而且点之前根本不知道下一只是谁 ——
+   * 做对照测试时全靠试。列表一次摆出全部候选，一步选中所要的那只。
+   *
+   * <p><b>为什么不用原生 &lt;select&gt;</b>：每一项要同时显示中文名 / 英文名 /
+   * 编号 / 状态四段信息，原生 option 只能是一行纯文本，也无法标出"当前选中"。
+   * 这里用按钮 + role=listbox 自绘，键盘（方向键 / Enter / Esc）与鼠标都可用。
+   *
+   * <p><b>为什么候选只有活跃台风</b>：推演必须基于 CMA 预报路径（后端要求至少 2 个
+   * 预报点），历史台风多数只有 1 个点，列进来就是"选了必报错"。因此候选集合与
+   * 原来那只轮换按钮完全一致，只是选择方式变了。
+   *
+   * @param {Object|null} t 当前基准台风
+   * @returns {string} 选择器 HTML
+   */
+  function baselinePicker(t) {
+    var list = state.actives || [];
+    var curId = t != null && t.id != null ? Number(t.id) : null;
+
+    var opts = list.map(function (a) {
+      var on = curId != null && Number(a.id) === curId;
+      return '<button class="bp-opt' + (on ? ' is-on' : '') + '" type="button" role="option"' +
+        ' aria-selected="' + (on ? 'true' : 'false') + '" data-base-id="' + U.esc(a.id) + '">' +
+        '<span class="bp-opt-main">' +
+          '<span class="bp-opt-name">' + U.esc(a.nameCn) + ' <i>' + U.esc(a.nameEn) + '</i></span>' +
+          '<span class="bp-opt-meta">' + U.esc(a.code) + ' · ' + U.esc(a.status) + '</span>' +
+        '</span>' +
+        (on ? '<span class="bp-opt-check" aria-hidden="true">✓</span>' : '') +
+      '</button>';
+    }).join('');
+
+    return '<div class="baseline-pick">' +
+        '<span class="flex-col"><span class="bp-label">基准台风</span>' +
+        '<span class="bp-name">' + U.esc(typhoonLine(t)) + '</span></span>' +
+        '<div class="bp-picker">' +
+          /* 无活跃台风时按钮**不置灰**：置灰后点击毫无反馈，用户不知道是"没得换"还是"点坏了"。
+             让它照常展开，列表里写明「当前无活跃台风在编」，原因当场可见。 */
+          '<button class="zbtn is-outline is-sm bp-trigger" type="button" id="btn-change-base"' +
+            ' aria-haspopup="listbox" aria-expanded="false">' +
+            '<span>更换</span><i class="bp-caret" aria-hidden="true"></i>' +
+          '</button>' +
+          '<div class="bp-menu" role="listbox" aria-label="选择基准台风" hidden>' +
+            '<div class="bp-menu-head">活跃台风<span class="bp-menu-n">' + list.length + ' 只</span></div>' +
+            '<div class="bp-menu-body">' +
+              (list.length ? opts
+                : '<div class="bp-empty">当前无活跃台风在编，暂无可切换的基准。</div>') +
+            '</div>' +
+            '<div class="bp-menu-note">仅列当前在编台风：推演需要 CMA 预报路径</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /**
    * 「沙盘参数控制」面板：基准台风 + 四根滑杆 + 操作按钮。
    * @returns {string} 面板 HTML
    */
   function controlCard() {
     var t = state.current;
-    var baseline =
-      '<div class="baseline-pick">' +
-        '<span class="flex-col"><span class="bp-label">基准台风</span>' +
-        '<span class="bp-name">' + U.esc(t
-          ? t.nameCn + ' ' + t.nameEn + ' · ' + t.code + ' · ' + t.status
-          : '暂无活跃台风') + '</span></span>' +
-        '<button class="zbtn is-outline is-sm" type="button" id="btn-change-base">更换</button>' +
-      '</div>';
+    var baseline = baselinePicker(t);
 
     var sliders = state.sliders.map(function (s, i) {
       return '<div class="slider-row">' +
@@ -867,6 +926,58 @@
     return $.extend({ typhoonId: state.current ? state.current.id : DEFAULT_ID }, liveParams());
   }
 
+  /**
+   * 切换基准台风（下拉列表中选中一只后调用）。
+   *
+   * <p>顺序有讲究：先作废旧路径再重绘，否则图上会短暂留着**上一只台风**的
+   * 基准线 + 推演线，而左栏名字已经换人 —— 用户截到的就是一张自相矛盾的图。
+   * 重绘用全量 {@link render} 而不是只刷左栏：换基准台风后地图视野、结果表
+   * 高亮都该跟着回到初始态，局部刷新会留下上一只台风的选中态。
+   *
+   * @param {Object} t 目标台风 VO（来自 state.actives）
+   * @returns {Promise} 基准路径与模拟路径都重取完（失败各自兜底）
+   */
+  function switchBaseline(t) {
+    state.current = t;
+    state.basePath = null;
+    state.simPath = null;
+    state.sceneIndex = null;      // 情景高亮属于上一条情景，换台风后不再成立
+    ZFZ.layout.toast('基准台风已切换为 ' + t.nameCn + ' ' + t.nameEn);
+    render();
+    return reloadBaselineAndMap();
+  }
+
+  /**
+   * 展开 / 收起基准台风下拉。
+   * @param {jQuery} $picker .bp-picker 容器
+   * @param {boolean} open 目标状态
+   * @returns {void}
+   */
+  function openBasePicker($picker, open) {
+    if (!$picker.length) { return; }
+    var $menu = $picker.find('.bp-menu');
+    $picker.toggleClass('is-open', !!open);
+    $menu.prop('hidden', !open);
+    $picker.find('.bp-trigger').attr('aria-expanded', open ? 'true' : 'false');
+    if (!open) { return; }
+    /* 展开即把焦点放到当前选中项（没有就第一项）：纯键盘用户不必再按方向键 */
+    var $focus = $menu.find('.bp-opt.is-on');
+    if (!$focus.length) { $focus = $menu.find('.bp-opt').first(); }
+    if ($focus.length) { $focus.trigger('focus'); }
+  }
+
+  /**
+   * 收起下拉；`restoreFocus` 为真时把焦点还给「更换」按钮。
+   * @param {boolean} [restoreFocus] 是否归还焦点（Esc 场景）
+   * @returns {void}
+   */
+  function closeBasePicker(restoreFocus) {
+    var $picker = $('.bp-picker.is-open');
+    if (!$picker.length) { return; }
+    openBasePicker($picker, false);
+    if (restoreFocus) { $picker.find('.bp-trigger').trigger('focus'); }
+  }
+
   /* ---------------- 交互 ---------------- */
 
   /** 事件统一委托到 #page-body，局部重渲染后无需重新绑定 */
@@ -940,25 +1051,49 @@
         .then(function () { $btn.prop('disabled', false); });
     });
 
-    /* 更换基准台风：在活跃台风之间轮换 */
-    $body.on('click', '#btn-change-base', function () {
-      ZFZ.api.getTyphoons({ status: 'ACTIVE' })
-        .then(function (list) {
-          if (!list || !list.length) {
-            ZFZ.layout.toast('当前无活跃台风在编，无法更换基准');
-            return;
-          }
-          var idx = 0;
-          list.forEach(function (t, i) { if (state.current && t.id === state.current.id) { idx = i; } });
-          state.current = list[(idx + 1) % list.length];
-          // 换台风后旧路径全部作废：先清空再重取，免得图上是上一只台风的线
-          state.basePath = null;
-          state.simPath = null;
-          ZFZ.layout.toast('基准台风已切换为 ' + state.current.nameCn + ' ' + state.current.nameEn);
-          render();
-          return reloadBaselineAndMap();
-        })
-        .catch(function (err) { ZFZ.layout.toast('更换基准失败：' + err.message); });
+    /* 基准台风下拉：点「更换」展开候选列表（不再是点一次换一只） */
+    $body.on('click', '#btn-change-base', function (e) {
+      e.stopPropagation();                 // 别被下面的"点空白处关闭"当场关掉
+      var $picker = $(this).closest('.bp-picker');
+      openBasePicker($picker, !$picker.hasClass('is-open'));
+    });
+
+    /* 选中列表里的一只：一步直达，不必先换再点。同一只再点一次视为「只是看看」 */
+    $body.on('click', '.bp-opt', function (e) {
+      e.stopPropagation();
+      var id = Number($(this).attr('data-base-id'));
+      var picked = null;
+      (state.actives || []).forEach(function (a) { if (Number(a.id) === id) { picked = a; } });
+      closeBasePicker();
+      if (!picked) { return; }
+      if (state.current && Number(state.current.id) === id) { return; }
+      switchBaseline(picked);
+    });
+
+    /* 键盘：方向键在候选项之间移动焦点，Enter 由 button 自身触发 click，
+       Esc 关闭并把焦点还给「更换」按钮（否则焦点会留在已隐藏的列表里）。 */
+    $body.on('keydown', '.bp-menu', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeBasePicker(true);
+        return;
+      }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') { return; }
+      var $opts = $(this).find('.bp-opt');
+      if (!$opts.length) { return; }
+      e.preventDefault();
+      var i = $opts.index(document.activeElement);
+      var next = e.key === 'ArrowDown'
+        ? (i + 1) % $opts.length
+        : (i <= 0 ? $opts.length - 1 : i - 1);
+      $opts.eq(next).trigger('focus');
+    });
+
+    /* 点页面其它地方关闭列表。挂在 document 上而不是 #page-body：
+       列表本身在 body 内，但点击落点可能是页头 / 空白区。 */
+    $(document).on('click.sandboxBase', function (e) {
+      if ($(e.target).closest('.bp-picker').length) { return; }
+      closeBasePicker();
     });
 
     /* 情景卡片：把该情景载入沙盘（参数回填 + 地图改画它的路径 + 结果表高亮）。
@@ -1029,6 +1164,9 @@
       state.cities = res[3] || [];
       state.sliders = buildSliders(state.params);
       var active = res[2] || [];
+      /* 候选清单只拉一次：下拉展开时不再发请求（原来每点一次「更换」就查一次接口，
+         网络慢的时候按钮像没反应）。 */
+      state.actives = active;
       return active.length ? active[0] : ZFZ.api.getTyphoon(DEFAULT_ID);
     }).then(function (current) {
       state.current = current;

@@ -257,7 +257,73 @@
   padding: 8px 10px; background: var(--row-alt); border-radius: var(--r-inner);
 }
 .baseline-pick .bp-label { font-size: 9px; color: var(--ink-3); }
-.baseline-pick .bp-name { font-size: var(--fs-sub); color: var(--ink); font-weight: var(--fw-medium); }
+.baseline-pick .bp-name {
+  font-size: var(--fs-sub); color: var(--ink); font-weight: var(--fw-medium);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 让名称这一列可压缩：不加 min-width:0 时 flex 子项的最小内容宽度会把「更换」挤出卡片 */
+.baseline-pick .flex-col { min-width: 0; }
+
+/* 基准台风下拉：把"点一次换一只"的轮换按钮换成可展开的候选列表。
+   .bp-picker 是定位上下文，面板绝对定位于按钮下方（右对齐，宽度略大于按钮），
+   z-index 抬高后可以盖住下方的滑杆行；.panel 没有 overflow:hidden，不会被裁掉。 */
+.bp-picker { position: relative; flex: none; }
+.bp-trigger { display: inline-flex; align-items: center; gap: 5px; }
+.bp-caret {
+  width: 0; height: 0; flex: none;
+  border-left: 3.5px solid transparent; border-right: 3.5px solid transparent;
+  border-top: 4px solid currentColor;
+  transition: transform .15s;
+}
+.bp-picker.is-open .bp-caret { transform: rotate(180deg); }
+
+.bp-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  width: 232px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: 0 10px 26px rgba(18, 43, 66, .16), 0 2px 6px rgba(18, 43, 66, .06);
+  overflow: hidden;
+}
+/* .bp-menu 自带 display，会让 UA 的 [hidden] 失效，这里补一条 */
+.bp-menu[hidden] { display: none; }
+
+.bp-menu-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; border-bottom: 1px solid var(--line);
+  font-size: var(--fs-mini); color: var(--ink-2); background: var(--row-alt);
+}
+.bp-menu-n { color: var(--ink-3); font-family: var(--font-num); }
+.bp-menu-body { max-height: 216px; overflow-y: auto; }
+
+.bp-opt {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 10px; border: 0; border-bottom: 1px solid var(--line);
+  background: none; text-align: left; font: inherit; cursor: pointer;
+  transition: background .13s;
+}
+.bp-opt:last-child { border-bottom: 0; }
+.bp-opt:hover { background: var(--row-alt); }
+.bp-opt:active { background: #EDF2F7; }
+.bp-opt:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.bp-opt.is-on { background: var(--brand-soft); }
+.bp-opt.is-on:hover { background: #DCEAF5; }
+
+.bp-opt-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.bp-opt-name {
+  font-size: var(--fs-sub); font-weight: var(--fw-medium); color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bp-opt-name i { font-style: normal; font-family: var(--font-num); font-size: var(--fs-mini); color: var(--ink-3); }
+.bp-opt-meta { font-size: var(--fs-mini); color: var(--ink-3); font-family: var(--font-num); }
+.bp-opt-check { flex: none; font-size: var(--fs-sub); color: var(--brand); }
+
+.bp-empty { padding: 14px 10px; text-align: center; font-size: var(--fs-body); color: var(--ink-3); }
+.bp-menu-note {
+  padding: 6px 10px; border-top: 1px solid var(--line);
+  font-size: 9px; line-height: 1.5; color: var(--ink-3); background: var(--bg);
+}
 
 /* ==========================================================================
    P7 问卷
