@@ -1,0 +1,45 @@
+# ---- Maven ----
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# ---- 本机配置（含数据库口令，绝不入库） ----
+# 模板是 src/main/resources/db.properties.example，已入库；
+# 真实配置文件由各人照模板自行创建，这样口令不会随仓库外流。
+# 注意：若该文件曾经被提交过，仅添加忽略规则不够，还需要
+#       git rm --cached src/main/resources/db.properties 并轮换口令。
+src/main/resources/db.properties
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+.vscode/
+
+# ---- 编译产物 ----
+*.class
+*.war
+*.ear
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db
+
+# ---- 日志 ----
+logs/
+*.log
+
+# ---- 本机调试产物 ----
+# CDP 探针截图，仅本机排查问题时用得到，可随时由 tools/*.cjs 重新生成
+_probe_shots/
+_shots/
+
+# ---- 外部数据缓存 ----
+# Natural Earth 海岸线 TopoJSON，gen-wpac-coast.py 需要时自动下载
+tools/.cache/
+
+# ---- 上传断点续传状态（本机临时产物）----
+tools/.blob-state.json

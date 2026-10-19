@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440">
+<title>监测总览 · 追风者 台风实况监测与灾害辅助分析平台</title>
+<link rel="icon" type="image/svg+xml" href="assets/svg/logo-typhoon.svg">
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="css/tokens.css?v=202610182205">
+<link rel="stylesheet" href="css/app.css?v=202610182205">
+<link rel="stylesheet" href="css/pages.css?v=202610182205">
+</head>
+<body>
+<div class="app">
+  <header id="app-header"></header>
+  <div class="page-title-bar" id="page-title"></div>
+  <main class="page-body" id="page-body"></main>
+</div>
+
+<script src="vendor/jquery.min.js"></script>
+<script src="vendor/bootstrap.bundle.min.js"></script>
+<script src="js/api.js?v=202610182205"></script>
+<!-- 西北太平洋真实海岸线（Natural Earth 1:50m，由 tools/gen-wpac-coast.py 生成）。
+     必须在 ui.js 之前加载：底图图层在渲染时同步读取 ZFZ.geo.wpac。 -->
+<script src="js/geo-wpac.js?v=202610182205"></script>
+<!-- 地形图数据（由 tools/fetch-dem.py + tools/gen-terrain.py 生成）：
+     晕渲+分层设色底图的坐标锚点与矢量等高线。
+     **刻意不写 <script> 标签**：geo-wterrain.js 约 1.2MB（等高线二十万点），
+     而默认底图是「普通地图」，用不到地形；同步加载会让首屏白白多等 1.2MB。
+     改为 layout.js 在用户首次切到地形图时按需注入（见 loadWterrain）。 -->
+<script src="js/ui.js?v=202610182205"></script>
+<script src="js/layout.js?v=202610182205"></script>
+<script src="js/pages/overview.js?v=202610182205"></script>
+</body>
+</html>
